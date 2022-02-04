@@ -50,7 +50,7 @@ const createPostCtrl = expressAsyncHandler(async (req,res) => {
   });
     res.json(post)
     //STEP 43-Remove the picturefrom the folder that have already been uploaded on cloudinary
-    //fs.unlinkSync(localPath);//apply this function for profile picture in userCtrl as well-next step fetch all posts
+    fs.unlinkSync(localPath);//apply this function for profile picture in userCtrl as well-next step fetch all posts
   } catch(error) {
     res.json(error);
   }
@@ -65,10 +65,10 @@ const fetchPostsCtrl = expressAsyncHandler(async (req,res) => {
   try {
     //Check if it has category
     if (hasCategory) {
-      const posts = await Post.find({category: hasCategory}).populate("user");
+      const posts = await Post.find({category: hasCategory}).populate("user").populate("comments");
       res.json(posts);
     } else {
-      const allPosts = await Post.find({}).populate("user");
+      const allPosts = await Post.find({}).populate("user").populate("comments");
     res.json(allPosts)
     }
     
@@ -86,7 +86,7 @@ const fetchPostCtrl = expressAsyncHandler(async (req,res) => {
   const { id } = req.params;
   validateMongodbId(id);
   try {
-    const post = await Post.findById(id).populate("user").populate("disLikes").populate("likes");
+    const post = await Post.findById(id).populate("user").populate("disLikes").populate("likes").populate("comments");
     //STEP 47-update number of views
     await Post.findByIdAndUpdate(id, {
       $inc: {numViews: 1},

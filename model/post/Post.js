@@ -61,6 +61,15 @@ const postSchema = new mongoose.Schema({
   timestamps: true,
 });
 
+//----145.POPULATE POST COMMENTS--STEP1->MOVE TO postCtrl
+//If you look in the database the comment field is not added in the post collection therefore as we have to fetch comments for each post so will add add the comments field virtually.
+postSchema.virtual('comments', {
+  ref: "Comment",
+  foreignField: 'post',
+  localField: "_id"
+});
+
+//compile
 const Post = mongoose.model('Post', postSchema);
 
 module.exports = Post; //move to postCtrl
