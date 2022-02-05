@@ -14,7 +14,7 @@ const CommentRoutes = express.Router();
 
 
 CommentRoutes.post("/",authMiddleware, createCommentCtrl); //next set the route in server.js
-CommentRoutes.get("/",authMiddleware, fetchAllCommentsCtrl); 
+CommentRoutes.get("/", fetchAllCommentsCtrl); 
 CommentRoutes.get("/:id",authMiddleware, fetchCommentCtrl); 
 CommentRoutes.put("/:id",authMiddleware, updateCommentCtrl); 
 CommentRoutes.delete("/:id",authMiddleware, deleteCommentCtrl); 
