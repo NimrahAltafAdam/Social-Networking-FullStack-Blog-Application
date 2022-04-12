@@ -51,6 +51,7 @@ const loginUserCtrl = expressAsyncHandler(async (req, res) => {
       profilePhoto: userFound?.profilePhoto,
       isAdmin: userFound?.isAdmin,
       token: generateToken(userFound?._id),
+      isAccountVerified: userFound?.isAccountVerified,
     });
   } else {
     res.status(401);
@@ -104,13 +105,30 @@ const fetchUserDetailsCtrl = expressAsyncHandler(async (req, res) => {
 //------------------------------
 //User profile
 //------------------------------
-
 const userProfileCtrl = expressAsyncHandler(async (req, res) => {
   const { id } = req.params;
   validateMongodbId(id);
+  //1.Find the login user
+  //2. Check this particular if the login user exists in the array of viewedBy
+  //Get the login user
+  const loginUserId = req?.user?._id?.toString();
+  console.log(typeof loginUserId);
   try {
-    const myProfile = await User.findById(id).populate("posts");//STEP45-'.populate("posts")' was added here-NEXT STEP IS TO MOVE TO postCtrl.js to set the ctrl for fetech a post and populate a user
-    res.json(myProfile);
+    const myProfile = await User.findById(id)
+      .populate("posts")
+      .populate("viewedBy");
+    const alreadyViewed = myProfile?.viewedBy?.find(user => {
+      console.log(user);
+      return user?._id?.toString() === loginUserId;
+    });
+    if (alreadyViewed) {
+      res.json(myProfile);
+    } else {
+      const profile = await User.findByIdAndUpdate(myProfile?._id, {
+        $push: { viewedBy: loginUserId },
+      });
+      res.json(profile);
+    }
   } catch (error) {
     res.json(error);
   }
@@ -160,6 +178,74 @@ const updateUserPasswordCtrl = expressAsyncHandler(async (req, res) => {
     res.json(user);
   }
 });
+
+//------------------------------
+//following
+//------------------------------
+
+/*const followingUserCtrl = expressAsyncHandler(async (req, res) => {
+  //1.Find the user you want to follow and update it's followers field
+  //2. Update the login user following field
+  const { followId } = req.body;
+  const loginUserId = req.user.id;
+
+  //find the target user and check if the login id exist
+  const targetUser = await User.findById(followId);
+
+  const alreadyFollowing = targetUser?.followers?.find(
+    user => user?.toString() === loginUserId.toString()
+  );
+
+  if (alreadyFollowing) throw new Error("You have already followed this user");
+
+  //1. Find the user you want to follow and update it's followers field
+  await User.findByIdAndUpdate(
+    followId,
+    {
+      $push: { followers: loginUserId },
+      isFollowing: true,
+    },
+    { new: true }
+  );
+
+  //2. Update the login user following field
+  await User.findByIdAndUpdate(
+    loginUserId,
+    {
+      $push: { following: followId },
+    },
+    { new: true }
+  );
+  res.json("You have successfully followed this user");
+});
+
+//------------------------------
+//unfollow
+//------------------------------
+
+const unfollowUserCtrl = expressAsyncHandler(async (req, res) => {
+  const { unFollowId } = req.body;
+  const loginUserId = req.user.id;
+
+  await User.findByIdAndUpdate(
+    unFollowId,
+    {
+      $pull: { followers: loginUserId },
+      isFollowing: false,
+    },
+    { new: true }
+  );
+
+  await User.findByIdAndUpdate(
+    loginUserId,
+    {
+      $pull: { following: unFollowId },
+    },
+    { new: true }
+  );
+
+  res.json("You have successfully unfollowed this user");
+});*/
 
 //------------------------------
 //following
@@ -265,7 +351,7 @@ const unBlockUserCtrl = expressAsyncHandler(async (req, res) => {
   res.json(user);
 });
 
-//------------------------------
+/*//------------------------------
 // STEP 31-Generate Email verification token
 //------------------------------
 const generateVerificationTokenCtrl = expressAsyncHandler(async (req, res) => {
@@ -283,8 +369,8 @@ const generateVerificationTokenCtrl = expressAsyncHandler(async (req, res) => {
 
     const resetURL = `If you were requested to verify your account, verify now within 10 minutes, otherwise ignore this message <a href="http://localhost:3000/verify-account/${verificationToken}">Click to verify your account</a>`;
     const msg = {
-      to: "ffdfd@gmail.com",
-      from: "twentekghana@gmail.com",
+      to: user?.email,
+      from: "nimrahadam.123@gmail.com",
       subject: "Verify your account",
       html: resetURL,
     };
@@ -314,7 +400,60 @@ const accountVerificationCtrl = expressAsyncHandler(async (req, res) => {
   userFound.accountVerificationTokenExpires = undefined;
   await userFound.save();
   res.json(userFound);
+});*/
+
+//------------------------------
+// Generate Email verification token
+//------------------------------
+const generateVerificationTokenCtrl = expressAsyncHandler(async (req, res) => {
+  const loginUserId = req.user.id;
+  const user = await User.findById(loginUserId);
+
+  try {
+    //Generate token
+    
+    const verificationToken = await user?.createAccountVerificationToken();
+    //save the user
+    await user.save();
+    console.log(verificationToken);
+    //build your message
+    const resetURL = `If you were requested to verify your account, verify now within 10 minutes, otherwise ignore this message 
+    <a href="http://localhost:3000/verify-account/${verificationToken}">Click to verify your account</a>`;
+
+    const msg = {
+      to: user?.email,
+      from: "nimrahadam.123@gmail.com",
+      subject: "Verify your account",
+      html: resetURL,
+    };
+    await sgMail.send(msg);
+    res.json(resetURL);
+  } catch (error) {
+    res.json(error);
+  }
 });
+
+//------------------------------
+//Account verification
+//------------------------------
+const accountVerificationCtrl = expressAsyncHandler(async (req, res) => {
+  const { token } = req.body;
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+  //find this user by token
+  const userFound = await User.findOne({
+    accountVerificationToken: hashedToken,
+    accountVerificationTokenExpires: { $gt: new Date() },
+  });
+  if (!userFound) throw new Error("Token expired, try again later");
+  //update the proprt to true
+  userFound.isAccountVerified = true;
+  userFound.accountVerificationToken = undefined;
+  userFound.accountVerificationTokenExpires = undefined;
+  await userFound.save();
+  res.json(userFound);
+});
+
+
 
 //------------------------------
 //STEP 33-Forget token generator
@@ -334,7 +473,8 @@ const forgetPasswordToken = expressAsyncHandler(async (req, res) => {
     await user.save();
 
     //build your message
-    const resetURL = `If you were requested to reset your password, reset now within 10 minutes, otherwise ignore this message <a href="http://localhost:3000/reset-password/${token}">Click to Reset</a>`;
+    const resetURL = `If you were requested to verify your account, verify now within 10 minutes, 
+    otherwise ignore this message <a href="http://localhost:3000/verify-account/${verificationToken}">Click to verify your account</a>`;
     const msg = {
       to: email,
       from: "twentekghana@gmail.com",
