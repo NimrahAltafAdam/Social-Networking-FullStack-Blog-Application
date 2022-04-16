@@ -2,6 +2,7 @@
 const expressAsyncHandler = require("express-async-handler");
 const { findById } = require("../../model/comment/Comment");
 const Comment = require("../../model/comment/Comment");
+const blockUser = require("../../utils/blockUser");
 const validateMongodbId = require("../../utils/validateMongodbID");
 
 
@@ -11,6 +12,8 @@ const validateMongodbId = require("../../utils/validateMongodbID");
 const createCommentCtrl = expressAsyncHandler(async (req,res) => {
   //1. Get the user
   const user = req.user;
+  //check if user is blocked
+  blockUser(user);
   //2. Get the post id-We can get this id both by req.body or req.params but in this case req.body is the preferred method
   const {postId, description} = req.body;
   try {

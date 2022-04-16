@@ -108,6 +108,12 @@ userSchema.virtual('posts', {
   localField: '_id',
 }); //move to userCtrl.js and populate the profile ctrl with posts
 
+//virtual method to create accountType
+userSchema.virtual("accountType").get(function() {
+  const numberOfFollowers = this?.followers?.length;
+  return numberOfFollowers >=10 ? "Pro Account" : "Starter Account"
+});
+
 //Hash password
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {

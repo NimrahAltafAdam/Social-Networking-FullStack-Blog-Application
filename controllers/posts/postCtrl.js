@@ -4,7 +4,6 @@ const expressAsyncHandler = require("express-async-handler");
 const Post = require("../../model/post/Post");
 const validateMongodbId = require("../../utils/validateMongodbID");
 const User = require("../../model/user/User");
-
 //STEP 40
 const Filter = require("bad-words");
 //STEP 42
@@ -12,6 +11,7 @@ const cloudinaryUploadImg = require("../../utils/cloudinary");
 
 //STEP 43
 const fs = require("fs");
+const blockUser = require("../../utils/blockUser");
 
 
 
@@ -35,6 +35,13 @@ const createPostCtrl = expressAsyncHandler(async (req,res) => {
       throw new Error("Creating Failed because it containes profane words and you have been blocked");
   }//next step is to upload image for a post. for this go to middlewares and photoUpload file
 
+  //Prevet user if his account is a starter account
+  if (
+  req?.user?.accountType === "Starter Account" &&
+  req?.user?.postCount >= 2
+  )
+  throw new Error("Starter account can only create two posts get yourself more followers");
+
   //STEP 42
   //1. Get the path to img
   const localPath = `public/images/posts/${req.file.filename}`;
@@ -42,15 +49,27 @@ const createPostCtrl = expressAsyncHandler(async (req,res) => {
   //2.Upload to cloudinary 
   const imgUploaded = await cloudinaryUploadImg(localPath); //NEXT STEP is to remove saved images-require fs
 
+  //check if user is blocked
+  blockUser(req.user);
+
   try {
     const post = await Post.create({
       ...req.body, 
       image: imgUploaded?.url,//in order to test on postmen either comment out the image line or test the image file sepately by commentinng req.body and res.json to image upload
       user: _id,
   });
+  //update the user post count
+   await User.findByIdAndUpdate(_id,
+   {
+     $inc: { postCount: 1 },
+   }, 
+   {
+     new: true,
+   }
+ );
+  fs.unlinkSync(localPath);//apply this function for profile picture in userCtrl as well-next step fetch all posts
     res.json(post)
     //STEP 43-Remove the picturefrom the folder that have already been uploaded on cloudinary
-    fs.unlinkSync(localPath);//apply this function for profile picture in userCtrl as well-next step fetch all posts
   } catch(error) {
     res.json(error);
   }
@@ -65,10 +84,16 @@ const fetchPostsCtrl = expressAsyncHandler(async (req,res) => {
   try {
     //Check if it has category
     if (hasCategory) {
-      const posts = await Post.find({category: hasCategory}).populate("user").populate("comments");
+      const posts = await Post.find({category: hasCategory})
+      .populate("user")
+      .populate("comments")
+      .sort("createdAt");
       res.json(posts);
     } else {
-      const allPosts = await Post.find({}).populate("user").populate("comments");
+      const allPosts = await Post.find({})
+      .populate("user")
+      .populate("comments")
+      .sort("-createdAt");
     res.json(allPosts)
     }
     

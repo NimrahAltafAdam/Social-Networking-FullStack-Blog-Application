@@ -3,9 +3,12 @@ const expressAsyncHandler = require("express-async-handler");
 const Filter = require("bad-words");
 const EmailMsg = require("../../model/EmailMessaging/EmailMessaging");
 const sgMail = require("@sendgrid/mail");
+const blockUser = require("../../utils/blockUser");
 
 const sendEmailMsgCtrl = expressAsyncHandler(async (req,res) => {
   const {_id} = req.user;
+  //check if user is blocked
+  blockUser(req.user);
   const {to, subject, message} = req.body;
   const emailMessage = subject + ' ' + message;
   //prevent profanity/bad words
