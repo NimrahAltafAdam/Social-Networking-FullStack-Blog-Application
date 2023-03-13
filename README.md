@@ -1,2 +1,3 @@
 # Backend-Blog-Application
- 
+I have Developed a Blog Application using MERN Stack. Anyone can Register while only authenticated users can log in and view their profiles and all the information related to the posts they have created. Only admin can create post categories while logged-in users can create posts. Admin can also block an unblock users. All the routes are protected with different access rights and the site also provides forget password functionality. The site not only allows users to view, comment, and like each other posts but also follow or unfollow one another and view posts category-wise.
+Frontend-end: https://github.com/NimrahAltafAdam/FrontEnd-Blog-Application
